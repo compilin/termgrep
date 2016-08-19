@@ -1,0 +1,7 @@
+*.gv
+*.svg
+lib/
+include/
+Debug/
+bin/
+.idea
