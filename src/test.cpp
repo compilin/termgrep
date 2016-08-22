@@ -1,8 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
-#include <json.hpp>
-#include <boost/program_options.hpp>
 #include "termgrep.hpp"
 
 using namespace std;
