@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
 
+find_package(Boost
+1.49.0
+REQUIRED
+COMPONENTS program_options
+)
+
 add_subdirectory(./deps/gvpp)
 
 include_directories(${gvpp_SOURCE_DIR}/src ./deps/json/src)
@@ -27,7 +33,7 @@ target_compile_definitions(wtermgrep PRIVATE CTYPE=wchar_t)
 target_compile_definitions(wtermgrep_main PRIVATE CTYPE=wchar_t)
 target_compile_definitions(wtermgrep_test PRIVATE CTYPE=wchar_t)
 
-target_link_libraries(termgrep_main termgrep gvpp)
-target_link_libraries(wtermgrep_main wtermgrep gvpp)
+target_link_libraries(termgrep_main termgrep gvpp ${Boost_LIBRARIES})
+target_link_libraries(wtermgrep_main wtermgrep gvpp ${Boost_LIBRARIES})
 target_link_libraries(termgrep_test termgrep gvpp)
 target_link_libraries(wtermgrep_test wtermgrep gvpp)

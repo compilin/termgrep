@@ -89,10 +89,17 @@ namespace termgrep {
 		g.set(AttrType::GRAPH, CW("splines"), CW("line"))
 				.set(AttrType::GRAPH, CW("rankdir"), CW("LR"))
 				.set(AttrType::GRAPH, CW("outputorder"), CW("edgesfirst"))
-				.set(AttrType::NODE, CW("shape"), CW("rect"))
+				.set(AttrType::NODE, CW("shape"), CW("circle"))
 				.set(AttrType::NODE, CW("style"), CW("filled"))
-				.set(AttrType::NODE, CW("fillcolor"), CW("\"#EEEEEE\""));
-		auto &root = g.addNode(CW("0"), CW("Start"));
+				.set(AttrType::NODE, CW("fillcolor"), CW("\"#FFFFFF\""))
+				.set(AttrType::NODE, CW("color"), CW("\"#808080\""))
+				.set(AttrType::NODE, CW("width"), CW("0.3"))
+				.set(AttrType::NODE, CW("height"), CW("0.3"))
+				.set(AttrType::NODE, CW("fixedsize"), CW("true"));
+		auto &root = g.addNode(CW("0"), CW("Start"))
+					.set(CW("fixedsize"), CW("false"))
+					.set(CW("shape"), CW("doubleoctagon"))
+					.set(CW("fillcolor"), CW("\"#AAAAFF\""));
 		map<strtype, size_t> nodeDepth;
 		vector<Edge<CharType>*> edges;
 		nodeDepth[root.getId()] = 0;
@@ -103,17 +110,22 @@ namespace termgrep {
 						return strtype(CW("'")) + chr + strtype(CW("'"));
 					};
 					if (cur->id != 0) {
-						strtype label = to_str<CharType>((int) cur->id);
-						label = label + CW(": ") + (!cur->isfunc ?
-													toLabel(cur->chr) :
-													cur->func.label);
+						strtype label = cur->isfunc ?
+										cur->func.label :
+										toLabel(cur->chr);
 						if (cur->termid != 0) {
+							label = to_str<CharType>(cur->id) + CW(": ") + label;
 							curNode = &g.addNode(to_str<CharType>((int) cur->id),
 							                     label + CW("\\n") +
 							                     this->getTerm(cur->termid));
-							curNode->set(CW("shape"), CW("box3d"));
+							curNode->
+								 set(CW("shape"), CW("rect"))
+								 .set(CW("color"), CW("black"))
+								 .set(CW("fillcolor"), CW("lightgrey"))
+								 .set(CW("fixedsize"), CW("false"));
 						} else
-							curNode = &g.addNode(to_str<CharType>((int) cur->id), label);
+							curNode = &g.addNode(
+									to_str<CharType>((int) cur->id), label);
 
 						auto &ed = g.addEdge(prev, *curNode);
 						edges.push_back(&ed);
@@ -137,8 +149,6 @@ namespace termgrep {
 		for (auto edge : edges) {
 			auto frDep = nodeDepth[edge->getFrom().getId()],
 				toDep = nodeDepth[edge->getTo().getId()];
-			edge->getFrom().set(CW("xlabel"), to_str<CharType>(frDep));
-			edge->getTo().set(CW("xlabel"), to_str<CharType>(toDep));
 			if (frDep >= toDep)
 				edge->set(CW("constraint"), CW("false"))
 					.set(CW("style"), CW("dashed"))
@@ -173,7 +183,7 @@ namespace termgrep {
 	}
 
 	void TermGrep::addStates(StatePtr from, const CharType *chars) {
-		CharType chr = chars[0];
+		CharType chr = tolower(chars[0]);
 
 		if (chr == (CharType) 0) {
 			from->termid = terms.size() - 1;
@@ -201,7 +211,8 @@ namespace termgrep {
 		addStates(nextState, chars + 1);
 	}
 
-	void TermGrep::TermGrepChecker::feed(CharType chr) {
+	void TermGrep::Matcher::feed(CharType chr) {
+		chr = tolower(chr);
 		StatePtr nextState;
 		for (auto *nxt = curstate->next.get(); nxt; nxt = nxt->next.get())
 			if (matchesState(*nxt->state, chr))
@@ -237,18 +248,18 @@ namespace termgrep {
 		curPos ++;
 	}
 
-	void TermGrep::TermGrepChecker::end() {
+	void TermGrep::Matcher::end() {
 		feed((CharType)'\t');
 		matches.splice(matches.end(), candidates);
 	}
 
-	void TermGrep::TermGrepChecker::feed(const CharType *chrs) {
-		for (const CharType *chr = chrs; *chr != 0; chr++) {
-			feed(*chr);
+	void TermGrep::Matcher::feed(const CharType *chrs, size_t n) {
+		for (size_t i = 0; i < n; i ++) {
+			feed(chrs[i]);
 		}
 	}
 
-	map<size_t, size_t> &&TermGrep::TermGrepChecker::getTermidOccurences
+	map<size_t, size_t> &&TermGrep::Matcher::getTermidOccurences
 						(map<size_t, size_t> occurences) {
 		for(Match &m : matches) {
 			auto it = occurences.find(m.termid);
@@ -260,7 +271,7 @@ namespace termgrep {
 		return move(occurences);
 	}
 
-	map<strtype, size_t> &&TermGrep::TermGrepChecker::getTermOccurences
+	map<strtype, size_t> &&TermGrep::Matcher::getTermOccurences
 						(map<strtype, size_t> occurences) {
 		for(Match &m : matches) {
 			auto it = occurences.find(m.term);
@@ -273,12 +284,12 @@ namespace termgrep {
 	}
 
 	/*!
-	 * \brief Builds a TermGrepChecker using the Powerset Construction method.
+	 * \brief Builds a Matcher using the Powerset Construction method.
 	 * the parent TermGrep's states are considered to have an implicit empty
 	 * transition to the Start node, making the FSM nondeterministic. Then we
 	 * use the method to make it deterministic again.
 	*/
-	TermGrep::TermGrepChecker::TermGrepChecker(TermGrep &grep) :
+	TermGrep::Matcher::Matcher(TermGrep &grep) :
 			AbstractFSM(grep._terms), grep(grep),
 			curstate(nullptr), longestTerm(grep.longestTerm) {
 		struct stateid {
@@ -356,7 +367,7 @@ namespace termgrep {
 		reset();
 	}
 
-	void TermGrep::TermGrepChecker::reset() {
+	void TermGrep::Matcher::reset() {
 		curstate = getRoot();
 		matches.clear();
 		candidates.clear();
@@ -364,7 +375,7 @@ namespace termgrep {
 		nextCheck = 0;
 	}
 
-	unique_ptr<TermGrep::TermGrepChecker> TermGrep::makeChecker() {
-		return unique_ptr<TermGrepChecker>(new TermGrep::TermGrepChecker(*this));
+	unique_ptr<TermGrep::Matcher> TermGrep::makeChecker() {
+		return move(unique_ptr<Matcher>(new TermGrep::Matcher(*this)));
 	}
 }

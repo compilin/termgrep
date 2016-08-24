@@ -56,6 +56,7 @@ namespace termgrep {
 		unique_ptr <gvpp::Graph<CharType>> getGraph();
 #endif
 		const strtype & getTerm(size_t id);
+		const vector<strtype> &getTerms() { return terms; }
 	protected:
 		AbstractFSM(vector<strtype> &terms) : terms(terms) {};
 		vector<StatePtr> states;
@@ -74,7 +75,7 @@ namespace termgrep {
 		StatePtr firstState;
 		size_t longestTerm = 0;
 	public:
-		class TermGrepChecker;
+		class Matcher;
 		TermGrep(bool addWordBoundaries = true) :
 				AbstractFSM(_terms), addWordBoundaries(addWordBoundaries) {
 			addState((CharType)0);
@@ -83,14 +84,14 @@ namespace termgrep {
 		size_t addTerm(strtype term) { return addTerm(term, addWordBoundaries); }
 		size_t addTerm(strtype term, bool bound);
 
-		unique_ptr <TermGrepChecker> makeChecker();
+		unique_ptr <Matcher> makeChecker();
 	};
 
-	class TermGrep::TermGrepChecker : public AbstractFSM {
+	class TermGrep::Matcher : public AbstractFSM {
 		friend class TermGrep;
 	public:
 		class Match {
-			friend class TermGrep::TermGrepChecker;
+			friend class TermGrep::Matcher;
 		private:
 			Match(size_t termid, size_t startPos, const strtype term) :
 				termid(termid), startPos(startPos), term(term) {}
@@ -101,17 +102,17 @@ namespace termgrep {
 		};
 	private:
 		TermGrep &grep;
-		TermGrepChecker(TermGrep &grep);
+		Matcher(TermGrep &grep);
 		StatePtr curstate;
 		list<Match> candidates;
 		list<Match> matches;
 		size_t curPos = 0;
-		size_t longestTerm, nextCheck;
+		size_t longestTerm = 0, nextCheck = 0;
 	public:
 		void reset();
 		void end();
 		void feed(CharType c);
-		void feed(const CharType *chrs);
+		void feed(const CharType *chrs, size_t n);
 		void feed(strtype str) { feed(str.c_str()); }
 		void check(strtype str) { reset(); feed(str); end(); }
 		const list<Match> &getMatches() { return matches; }
@@ -122,4 +123,15 @@ namespace termgrep {
 		void clearMatches() { matches.clear(); }
 	};
 
+	template<class CharType>
+	basic_istream<CharType> &operator>>(basic_istream<CharType> &is,
+		TermGrep::Matcher &checker) {
+		static const size_t BUFSIZE = 256;
+		CharType buf[BUFSIZE];
+		while (is) {
+			is.read(buf, BUFSIZE);
+			checker.feed(buf, is.gcount());
+		}
+		return is;
+	}
 }
