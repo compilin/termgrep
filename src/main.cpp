@@ -95,13 +95,20 @@ int main(int argc, char **argv) {
 		("input", po::value<vector<string>>())
 		("output-file", po::value<string>())
 		("terms-stdin", po::bool_switch())
-		("file-list-stdin", po::bool_switch());
+		("file-list-stdin", po::bool_switch())
+		("output-termids", po::bool_switch());
 	po::positional_options_description pdesc;
 	pdesc.add("input", -1);
 	po::variables_map vm;
-	po::store(po::command_line_parser(argc, argv)
-		.options(desc).positional(pdesc).run(), vm);
-	po::notify(vm);
+	try {
+		po::store(po::command_line_parser(argc, argv)
+			.options(desc).positional(pdesc).run(), vm);
+		po::notify(vm);
+	} catch (exception const &ex) {
+		cerr << "Error : "<< ex.what() << endl
+			<< desc << endl;
+		return 1;
+	}
 
 	const bool
 		wholeWords = !vm["no-whole-words"].as<bool>(),
@@ -137,7 +144,7 @@ int main(int argc, char **argv) {
 	if (vm.count("output-matcher-fsm"))
 		basic_ofstream<CharType>(vm["output-matcher-fsm"].as<string>())
 			<< *matcher->getGraph();
-	json result;
+	json result = json::array();;
 	vector<string> inputFiles;
 
 	if (vm.count("input"))
@@ -155,7 +162,6 @@ int main(int argc, char **argv) {
 	}
 
 	if (inputFiles.size() > 1) {
-		result = json::array();
 		for (auto fname : inputFiles) {
 			auto fileid = getFileIdentifier(fname,
 				vm["fileid-separator"].as<string>());
@@ -163,9 +169,15 @@ int main(int argc, char **argv) {
 			cerr << "Reading "<< fileid.second << endl;
 			if (fileid.second >> *matcher) {
 				matcher->end();
-				auto occmap = matcher->getTermOccurences();
-				for (auto &els : occmap)
-					occJson[toNarrowString(els.first)] = els.second;
+				if (vm["output-termids"].as<bool>()) {
+					auto occmap = matcher->getTermidOccurences();
+					for (auto &els : occmap)
+						occJson[els.first] = els.second;
+				} else {
+					auto occmap = matcher->getTermOccurences();
+					for (auto &els : occmap)
+						occJson[toNarrowString(els.first)] = els.second;
+				}
 				matcher->reset();
 			}
 			result.push_back(json::object({
@@ -182,9 +194,15 @@ int main(int argc, char **argv) {
 			in() >> *matcher;
 		}
 		matcher->end();
-		auto occmap = matcher->getTermOccurences();
-		for (auto &els : occmap)
-			result[toNarrowString(els.first)] = els.second;
+		if (vm["output-termids"].as<bool>()) {
+			auto occmap = matcher->getTermidOccurences();
+			for (auto &els : occmap)
+				result[els.first] = els.second;
+		} else {
+			auto occmap = matcher->getTermOccurences();
+			for (auto &els : occmap)
+				result[toNarrowString(els.first)] = els.second;
+		}
 	}
 	if (vm.count("output-file")) {
 		cout << "Writing results to "<< vm["output-file"].as<string>() << endl;
