@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 				if (vm["output-termids"].as<bool>()) {
 					auto occmap = matcher->getTermidOccurences();
 					for (auto &els : occmap)
-						occJson[els.first] = els.second;
+						occJson[els.first-1] = els.second;
 				} else {
 					auto occmap = matcher->getTermOccurences();
 					for (auto &els : occmap)
@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
 		if (vm["output-termids"].as<bool>()) {
 			auto occmap = matcher->getTermidOccurences();
 			for (auto &els : occmap)
-				result[els.first] = els.second;
+				result[els.first-1] = els.second;
 		} else {
 			auto occmap = matcher->getTermOccurences();
 			for (auto &els : occmap)
