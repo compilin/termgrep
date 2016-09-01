@@ -80,7 +80,8 @@ template<class CharType>
 bool feedTo(const string &fname, typename TermGrep<CharType>::Matcher &matcher) {
 	auto fin = basic_ifstream<CharType>(fname);
 	if (!fin) {
-		cerr << "Can't read file "<< fname << endl;
+		cerr << "Can't read file "<< fname <<" :" << endl
+			<< "\t" << strerror(errno) << endl;
 		return false;
 	}
 	fin >> matcher;
@@ -148,7 +149,7 @@ int main(int argc, char **argv) {
 	if (vm.count("output-matcher-fsm"))
 		basic_ofstream<DefaultCharType>(vm["output-matcher-fsm"].as<string>())
 			<< *matcher->getGraph();
-	json result = json::array();;
+	json result;
 	vector<string> inputFiles;
 
 	if (vm.count("input"))
@@ -169,14 +170,14 @@ int main(int argc, char **argv) {
 		for (auto fname : inputFiles) {
 			auto fileid = getFileIdentifier(fname,
 				vm["fileid-separator"].as<string>());
-			json occJson = json::object();
+			json occJson;
 			cerr << "Reading "<< fileid.second << endl;
 			if (feedTo<DefaultCharType>(fileid.second, *matcher)) {
 				matcher->end();
 				if (vm["output-termids"].as<bool>()) {
 					auto occmap = matcher->getTermidOccurences();
-					for (auto &els : occmap)
-						occJson[els.first-1] = els.second;
+					for (size_t i = 1; i < occmap.size(); i ++)
+						occJson.push_back(occmap[i+1]);
 				} else {
 					auto occmap = matcher->getTermOccurences();
 					for (auto &els : occmap)
@@ -200,8 +201,8 @@ int main(int argc, char **argv) {
 		matcher->end();
 		if (vm["output-termids"].as<bool>()) {
 			auto occmap = matcher->getTermidOccurences();
-			for (auto &els : occmap)
-				result[els.first-1] = els.second;
+			for (size_t i = 1; i < occmap.size(); i ++)
+				result.push_back(occmap[i+1]);
 		} else {
 			auto occmap = matcher->getTermOccurences();
 			for (auto &els : occmap)
