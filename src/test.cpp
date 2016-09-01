@@ -1,27 +1,27 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
+#ifndef DEFAULT_CTYPE
+#define DEFAULT_CTYPE char
+#define CTYPENAME STR(DEFAULT_CTYPE)
+#endif
 #include "termgrep.hpp"
 
 using namespace std;
 using namespace termgrep;
-#ifndef CTYPE
 #define QUOTE(m) #m
 #define STR(m) QUOTE(m)
-#define CTYPE char
-#define CTYPENAME STR(CTYPE)
-#endif
 
-#define CW(str) CWSTR(CharType, str)
+#define CW(str) CWSTR(DefaultCharType, str)
 
-template<class CType = CharType>
+template<class CType = DefaultCharType>
 inline basic_ostream<CType> &out();
 
 template<> inline basic_ostream<char> &out<char>() { return cout; }
 template<> inline basic_ostream<wchar_t> &out<wchar_t>() { return wcout; }
 
 template<class keyT, class valT>
-basic_ostream<CharType> &operator<<(basic_ostream<CharType> &os,
+basic_ostream<DefaultCharType> &operator<<(basic_ostream<DefaultCharType> &os,
 		const map<keyT, valT> &mp) {
 	os << "map("<< mp.size() <<"){";
 	bool cnt = 0;
@@ -31,15 +31,15 @@ basic_ostream<CharType> &operator<<(basic_ostream<CharType> &os,
 }
 
 int main() {
-	cout << "compiled with CharType=" CTYPENAME << endl;
-	TermGrep grep;
+	cout << "compiled with DefaultCharType=" CTYPENAME << endl;
+	TermGrep<> grep;
 	for (auto term : {CW("foo"), CW("bar"), CW("foo bar")})
 		grep.addTerm(term);
 	auto checker = grep.makeChecker();
 	checker->check(CW("This is a test text with foo and bar and even foo bar"));
 	out() << checker->getTermOccurences() << endl;
 
-	basic_ofstream<CharType>("fsm.gv") << *grep.getGraph();
-	basic_ofstream<CharType>("fsm_check.gv") << *checker->getGraph();
+	basic_ofstream<DefaultCharType>("fsm.gv") << *grep.getGraph();
+	basic_ofstream<DefaultCharType>("fsm_check.gv") << *checker->getGraph();
 	return 0;
 }

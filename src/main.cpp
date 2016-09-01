@@ -5,6 +5,11 @@
 #include <codecvt>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+
+#ifndef DEFAULT_CTYPE
+#define DEFAULT_CTYPE char
+#define CTYPENAME STR(DEFAULT_CTYPE)
+#endif
 #include "termgrep.hpp"
 
 using namespace std;
@@ -12,23 +17,19 @@ using namespace termgrep;
 using json = nlohmann::json;
 namespace po = boost::program_options;
 
-#ifndef CTYPE
 #define QUOTE(m) #m
 #define STR(m) QUOTE(m)
-#define CTYPE char
-#define CTYPENAME STR(CTYPE)
-#endif
 
 #define CW(str) CWSTR(CharType, str)
 
 
-template<class CType = CharType>
+template<class CType = DefaultCharType>
 inline basic_istream<CType> &in();
 
 template<> inline basic_istream<char> &in<char>() { return cin; }
 template<> inline basic_istream<wchar_t> &in<wchar_t>() { return wcin; }
 
-template<class keyT, class valT>
+template<class keyT, class valT, class CharType>
 basic_ostream<CharType> &operator<<(basic_ostream<CharType> &os,
 		const map<keyT, valT> &mp) {
 	os << "map("<< mp.size() <<"){";
@@ -58,7 +59,8 @@ template<> string toNarrowString(wstring in) {
 	return wstring_convert<codecvt_utf8<wchar_t>>().to_bytes(in);
 }
 
-void readTermsFrom(TermGrep &grep, basic_istream<CharType> &infile) {
+template<class CharType>
+void readTermsFrom(TermGrep<CharType> &grep, basic_istream<CharType> &infile) {
 	basic_string<CharType> line;
 	while (infile) {
 		getline(infile, line);
@@ -67,13 +69,15 @@ void readTermsFrom(TermGrep &grep, basic_istream<CharType> &infile) {
 	cerr << "Successfully read "<< grep.getTerms().size() << " terms" << endl;
 }
 
-void readTermsFrom(TermGrep &grep, string infname) {
+template<class CharType>
+void readTermsFrom(TermGrep<CharType> &grep, string infname) {
 	basic_ifstream<CharType> infile(infname);
 	readTermsFrom(grep, infile);
 	infile.close();
 }
 
-bool operator>>(const string &fname, TermGrep::Matcher &matcher) {
+template<class CharType>
+bool feedTo(const string &fname, typename TermGrep<CharType>::Matcher &matcher) {
 	auto fin = basic_ifstream<CharType>(fname);
 	if (!fin) {
 		cerr << "Can't read file "<< fname << endl;
@@ -115,7 +119,7 @@ int main(int argc, char **argv) {
 		termsStdin = vm["terms-stdin"].as<bool>(),
 		fileListStdin = vm["file-list-stdin"].as<bool>();
 
-	TermGrep grep(wholeWords);
+	TermGrep<> grep(wholeWords);
 
 	if (vm.count("help")) {
 		cout << desc << endl;
@@ -139,10 +143,10 @@ int main(int argc, char **argv) {
 		readTermsFrom(grep, in());
 	auto matcher = grep.makeChecker();
 	if (vm.count("output-fsm"))
-		basic_ofstream<CharType>(vm["output-fsm"].as<string>())
+		basic_ofstream<DefaultCharType>(vm["output-fsm"].as<string>())
 			<< *grep.getGraph();
 	if (vm.count("output-matcher-fsm"))
-		basic_ofstream<CharType>(vm["output-matcher-fsm"].as<string>())
+		basic_ofstream<DefaultCharType>(vm["output-matcher-fsm"].as<string>())
 			<< *matcher->getGraph();
 	json result = json::array();;
 	vector<string> inputFiles;
@@ -167,7 +171,7 @@ int main(int argc, char **argv) {
 				vm["fileid-separator"].as<string>());
 			json occJson = json::object();
 			cerr << "Reading "<< fileid.second << endl;
-			if (fileid.second >> *matcher) {
+			if (feedTo<DefaultCharType>(fileid.second, *matcher)) {
 				matcher->end();
 				if (vm["output-termids"].as<bool>()) {
 					auto occmap = matcher->getTermidOccurences();
@@ -188,7 +192,7 @@ int main(int argc, char **argv) {
 	} else {
 		if (!inputFiles.empty()) {
 			cerr << "Reading from "<< inputFiles[0] << endl;
-			inputFiles[0] >> *matcher;
+			feedTo<DefaultCharType>(inputFiles[0], *matcher);
 		} else if (!fileListStdin && !termsStdin) {
 			cerr << "Reading from standard input" << endl;
 			in() >> *matcher;
