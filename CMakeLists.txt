@@ -12,6 +12,7 @@ COMPONENTS program_options
 )
 
 add_subdirectory(./deps/gvpp)
+set_target_properties(gvpp_test PROPERTIES EXCLUDE_FROM_ALL true)
 
 include_directories(${gvpp_SOURCE_DIR}/src ./deps/json/src)
 #link_directories("./lib")
@@ -20,20 +21,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "./lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "./bin")
 
 add_library(termgrep src/termgrep.hpp src/termgrep.cpp)
-add_executable(termgrep_main src/main.cpp)
-add_executable(termgrep_test src/test.cpp)
-target_compile_definitions(termgrep PRIVATE CTYPE=char)
-target_compile_definitions(termgrep_main PRIVATE CTYPE=char)
-target_compile_definitions(termgrep_test PRIVATE CTYPE=char)
 
-add_library(wtermgrep src/termgrep.hpp src/termgrep.cpp)
+add_executable(termgrep_main src/main.cpp)
+target_compile_definitions(termgrep_main PRIVATE DEFAULT_CTYPE=char)
+
 add_executable(wtermgrep_main src/main.cpp)
-add_executable(wtermgrep_test src/test.cpp)
-target_compile_definitions(wtermgrep PRIVATE CTYPE=wchar_t)
-target_compile_definitions(wtermgrep_main PRIVATE CTYPE=wchar_t)
-target_compile_definitions(wtermgrep_test PRIVATE CTYPE=wchar_t)
+target_compile_definitions(wtermgrep_main PRIVATE DEFAULT_CTYPE=wchar_t)
 
 target_link_libraries(termgrep_main termgrep gvpp ${Boost_LIBRARIES})
-target_link_libraries(wtermgrep_main wtermgrep gvpp ${Boost_LIBRARIES})
-target_link_libraries(termgrep_test termgrep gvpp)
-target_link_libraries(wtermgrep_test wtermgrep gvpp)
+target_link_libraries(wtermgrep_main termgrep gvpp ${Boost_LIBRARIES})

@@ -111,10 +111,10 @@ namespace termgrep {
 			void feed(strtype str) { feed(str.c_str()); }
 			void check(strtype str) { reset(); feed(str); end(); }
 			const list<Match> &getMatches() { return matches; }
-			map<size_t, size_t> &&getTermidOccurences
-					(map<size_t, size_t> occurences = map<size_t, size_t>());
-			map<strtype, size_t> &&getTermOccurences
-					(map<strtype, size_t> occurences = map<strtype, size_t>());
+			map<size_t, size_t> getTermidOccurences();
+			map<size_t, size_t> &getTermidOccurences(map<size_t, size_t> &occurences);
+			map<strtype, size_t> getTermOccurences();
+			map<strtype, size_t> &getTermOccurences(map<strtype, size_t> &occurences);
 			void clearMatches() { matches.clear(); }
 		};
 		TermGrep(bool addWordBoundaries = true) :

@@ -1,8 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <string.h>
-#include <json.hpp>
-#include <codecvt>
+#include <string>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -10,7 +8,7 @@
 #define DEFAULT_CTYPE char
 #define CTYPENAME STR(DEFAULT_CTYPE)
 #endif
-#include "termgrep.hpp"
+#include "outputformats.hpp"
 
 using namespace std;
 using namespace termgrep;
@@ -51,20 +49,14 @@ pair<string,string> getFileIdentifier(string input, string separator) {
 	return make_pair(input, input);
 }
 
-template<class CharT>
-string toNarrowString(basic_string<CharT> in);
-
-template<> string toNarrowString(string in) { return in; }
-template<> string toNarrowString(wstring in) {
-	return wstring_convert<codecvt_utf8<wchar_t>>().to_bytes(in);
-}
-
 template<class CharType>
 void readTermsFrom(TermGrep<CharType> &grep, basic_istream<CharType> &infile) {
 	basic_string<CharType> line;
 	while (infile) {
 		getline(infile, line);
-		grep.addTerm(line);
+		boost::trim(line);
+		if (line.length() > 0)
+			grep.addTerm(line);
 	}
 	cerr << "Successfully read "<< grep.getTerms().size() << " terms" << endl;
 }
@@ -92,16 +84,22 @@ int main(int argc, char **argv) {
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "Display help message")
-		("terms", po::value<string>())
-		("fileid-separator", po::value<string>()->default_value(""))
-		("no-whole-words", po::bool_switch())
+		("terms", po::value<string>(),
+			"File containing terms to look for (1 per line)")
+		("fileid-separator", po::value<string>()->default_value(""),
+			"Separator for fileid/filepath")
+		("no-whole-words", po::bool_switch(), "Do not automatically surround "
+			"terms with \"bound-of-word\" symbols")
+		("output-format", po::value<string>()->default_value("json"),
+			"Output format. Supported: json (default), csv")
 		("output-fsm", po::value<string>())
 		("output-matcher-fsm", po::value<string>())
-		("input", po::value<vector<string>>())
 		("output-file", po::value<string>())
+		("json-output-termids", po::bool_switch())
+		("csv-output-separator", po::value<string>())
+		("input", po::value<vector<string>>())
 		("terms-stdin", po::bool_switch())
-		("file-list-stdin", po::bool_switch())
-		("output-termids", po::bool_switch());
+		("file-list-stdin", po::bool_switch());
 	po::positional_options_description pdesc;
 	pdesc.add("input", -1);
 	po::variables_map vm;
@@ -149,9 +147,8 @@ int main(int argc, char **argv) {
 	if (vm.count("output-matcher-fsm"))
 		basic_ofstream<DefaultCharType>(vm["output-matcher-fsm"].as<string>())
 			<< *matcher->getGraph();
-	json result;
-	vector<string> inputFiles;
 
+	vector<string> inputFiles;
 	if (vm.count("input"))
 		for (auto fname : vm["input"].as<vector<string>>())
 			inputFiles.push_back(fname);
@@ -166,54 +163,43 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (inputFiles.size() > 1) {
+	OutputOptions opts;
+	opts.outputTermids = vm["json-output-termids"].as<bool>();
+	if (vm.count("csv-output-separator"))
+		opts.separator = vm["csv-output-separator"].as<string>();
+	Formats format;
+	try {
+		format = getFormatByName(vm["output-format"].as<string>());
+	} catch (runtime_error &er) {
+		cerr << er.what() << endl
+			<< "Supported output formats: JSON, CSV" << endl;
+		return 1;
+	}
+	auto result =
+		OutputFormat<DefaultCharType>::makeOutput(format, opts);
+
+	if (!inputFiles.empty()) {
 		for (auto fname : inputFiles) {
 			auto fileid = getFileIdentifier(fname,
 				vm["fileid-separator"].as<string>());
-			json occJson;
 			cerr << "Reading "<< fileid.second << endl;
 			if (feedTo<DefaultCharType>(fileid.second, *matcher)) {
 				matcher->end();
-				if (vm["output-termids"].as<bool>()) {
-					auto occmap = matcher->getTermidOccurences();
-					for (size_t i = 1; i < occmap.size(); i ++)
-						occJson.push_back(occmap[i+1]);
-				} else {
-					auto occmap = matcher->getTermOccurences();
-					for (auto &els : occmap)
-						occJson[toNarrowString(els.first)] = els.second;
-				}
+				result->addFileResult(fileid.first, *matcher);
 				matcher->reset();
 			}
-			result.push_back(json::object({
-				{"file", fileid.first},
-				{"matches", occJson}
-			}));
 		}
 	} else {
-		if (!inputFiles.empty()) {
-			cerr << "Reading from "<< inputFiles[0] << endl;
-			feedTo<DefaultCharType>(inputFiles[0], *matcher);
-		} else if (!fileListStdin && !termsStdin) {
-			cerr << "Reading from standard input" << endl;
-			in() >> *matcher;
-		}
+		cerr << "Reading from standard input" << endl;
+		in() >> *matcher;
 		matcher->end();
-		if (vm["output-termids"].as<bool>()) {
-			auto occmap = matcher->getTermidOccurences();
-			for (size_t i = 1; i < occmap.size(); i ++)
-				result.push_back(occmap[i+1]);
-		} else {
-			auto occmap = matcher->getTermOccurences();
-			for (auto &els : occmap)
-				result[toNarrowString(els.first)] = els.second;
-		}
+		result->addFileResult("stdin", *matcher);
 	}
 	if (vm.count("output-file")) {
 		cout << "Writing results to "<< vm["output-file"].as<string>() << endl;
-		ofstream(vm["output-file"].as<string>()) << result << flush;
+		ofstream(vm["output-file"].as<string>()) << *result << flush;
 	} else {
-		cout << setw(2) << result << endl;
+		cout << setw(2) << *result << endl;
 	}
 	return 0;
 }

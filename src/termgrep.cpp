@@ -264,7 +264,7 @@ namespace termgrep {
 			while (candit != candidates.end()) {
 				if (curPos - candit->startPos >= longestTerm) {
 					auto accepted = candit++; // Store iterator then  move it on
-					//out() << "Validating match : "<< accepted->term << endl;
+					// out<CharType>() << "Validating match : "<< accepted->term << endl;
 					matches.splice(matches.end(), candidates,
 									accepted, next(accepted));
 				} else
@@ -289,29 +289,39 @@ namespace termgrep {
 	}
 
 	template<class CharType>
-	map<size_t, size_t> &&TermGrepT::Matcher::getTermidOccurences
-						(map<size_t, size_t> occurences) {
-		for(Match &m : matches) {
-			auto it = occurences.find(m.termid);
-			if (it == occurences.end()) {
-				it = occurences.insert(make_pair(m.termid, 0)).first;
-			}
-			it->second ++;
-		}
-		return move(occurences);
+	map<size_t, size_t> TermGrepT::Matcher::getTermidOccurences() {
+		map<size_t, size_t> occurences;
+		for (size_t i = 0; i < this->getTerms().size() -1; i ++)
+			occurences.insert(make_pair(i, 0));
+		getTermidOccurences(occurences);
+		return occurences;
 	}
 
 	template<class CharType>
-	map<strtype, size_t> &&TermGrepT::Matcher::getTermOccurences
-						(map<strtype, size_t> occurences) {
+	map<strtype, size_t> TermGrepT::Matcher::getTermOccurences() {
+		map<strtype, size_t> occurences;
+		for (size_t i = 0; i < this->getTerms().size() -1; i ++)
+			occurences.insert(make_pair(this->getTerm(i), 0));
+		getTermOccurences(occurences);
+		return occurences;
+	}
+
+	template<class CharType>
+	map<size_t, size_t> &TermGrepT::Matcher::getTermidOccurences
+			(map<size_t, size_t> &occurences) {
 		for(Match &m : matches) {
-			auto it = occurences.find(m.term);
-			if (it == occurences.end()) {
-				it = occurences.insert(make_pair(m.term, 0)).first;
-			}
-			it->second ++;
+			occurences[m.termid] ++;
 		}
-		return move(occurences);
+		return occurences;
+	}
+
+	template<class CharType>
+	map<strtype, size_t> &TermGrepT::Matcher::getTermOccurences
+			(map<strtype, size_t> &occurences) {
+		for(Match &m : matches) {
+			occurences[m.term] ++;
+		}
+		return occurences;
 	}
 
 	/*!
