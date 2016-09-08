@@ -172,17 +172,20 @@ int main(int argc, char **argv) {
 		format = getFormatByName(vm["output-format"].as<string>());
 	} catch (runtime_error &er) {
 		cerr << er.what() << endl
-			<< "Supported output formats: JSON, CSV" << endl;
+			<< "Supported output formats: JSON, CSV, TSV" << endl;
 		return 1;
 	}
 	auto result =
 		OutputFormat<DefaultCharType>::makeOutput(format, opts);
 
 	if (!inputFiles.empty()) {
+		size_t nwidth = to_string(inputFiles.size()).length(),
+			fcount = 0;
 		for (auto fname : inputFiles) {
 			auto fileid = getFileIdentifier(fname,
 				vm["fileid-separator"].as<string>());
-			cerr << "Reading "<< fileid.second << endl;
+			cerr << "Reading ("<< setw(nwidth) << (++fcount) <<"/"<<
+				inputFiles.size() <<")"<< fileid.second << endl;
 			if (feedTo<DefaultCharType>(fileid.second, *matcher)) {
 				matcher->end();
 				result->addFileResult(fileid.first, *matcher);
