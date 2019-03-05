@@ -3,4 +3,4 @@
 	url = https://github.com/nlohmann/json
 [submodule "deps/gvpp"]
 	path = deps/gvpp
-	url = https://github.com/neurovertex/gvpp
+	url = https://github.com/compilin/gvpp
